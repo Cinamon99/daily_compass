@@ -5,6 +5,7 @@ import '../state/app_state.dart';
 import '../state/app_state_scope.dart';
 import '../utils/date_utils_x.dart';
 import '../widgets/common.dart';
+import '../widgets/daily_schedule_view.dart';
 import '../widgets/memo_editor_sheet.dart';
 
 /// 备忘页：按「生活 / 工作」分类管理备忘与待办
@@ -17,8 +18,11 @@ class MemoPage extends StatefulWidget {
   State<MemoPage> createState() => _MemoPageState();
 }
 
+enum _MemoView { list, schedule }
+
 class _MemoPageState extends State<MemoPage> {
   MemoCategory _category = MemoCategory.life;
+  _MemoView _view = _MemoView.list;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +45,7 @@ class _MemoPageState extends State<MemoPage> {
       appBar: AppBar(
         title: const Text('备忘'),
         actions: [
-          if (done.isNotEmpty)
+          if (_view == _MemoView.list && done.isNotEmpty)
             IconButton(
               onPressed: () => state.clearCompletedMemos(_category),
               icon: const Icon(Icons.cleaning_services_outlined),
@@ -49,31 +53,33 @@ class _MemoPageState extends State<MemoPage> {
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => showMemoEditor(context, initialCategory: _category),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('新建备忘'),
-      ),
+      floatingActionButton: _view == _MemoView.list
+          ? FloatingActionButton.extended(
+              onPressed: () => showMemoEditor(context, initialCategory: _category),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('新建备忘'),
+            )
+          : null,
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: SegmentedButton<MemoCategory>(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: SegmentedButton<_MemoView>(
               segments: const [
                 ButtonSegment(
-                  value: MemoCategory.life,
-                  label: Text('生活'),
-                  icon: Icon(Icons.home_outlined),
+                  value: _MemoView.list,
+                  label: Text('备忘'),
+                  icon: Icon(Icons.list_alt_outlined),
                 ),
                 ButtonSegment(
-                  value: MemoCategory.work,
-                  label: Text('工作'),
-                  icon: Icon(Icons.work_outline),
+                  value: _MemoView.schedule,
+                  label: Text('日程表'),
+                  icon: Icon(Icons.calendar_month_outlined),
                 ),
               ],
-              selected: {_category},
+              selected: {_view},
               onSelectionChanged: (value) =>
-                  setState(() => _category = value.first),
+                  setState(() => _view = value.first),
               style: ButtonStyle(
                 minimumSize: WidgetStateProperty.all(
                   const Size.fromHeight(44),
@@ -81,67 +87,101 @@ class _MemoPageState extends State<MemoPage> {
               ),
             ),
           ),
+          if (_view == _MemoView.list)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: SegmentedButton<MemoCategory>(
+                segments: const [
+                  ButtonSegment(
+                    value: MemoCategory.life,
+                    label: Text('生活'),
+                    icon: Icon(Icons.home_outlined),
+                  ),
+                  ButtonSegment(
+                    value: MemoCategory.work,
+                    label: Text('工作'),
+                    icon: Icon(Icons.work_outline),
+                  ),
+                ],
+                selected: {_category},
+                onSelectionChanged: (value) =>
+                    setState(() => _category = value.first),
+                style: ButtonStyle(
+                  minimumSize: WidgetStateProperty.all(
+                    const Size.fromHeight(40),
+                  ),
+                ),
+              ),
+            ),
           Expanded(
-            child: items.isEmpty
-                ? Center(
-                    child: EmptyHint(
-                      text: '还没有${_category.label}备忘\n点击右下角按钮添加第一条',
-                      icon: Icons.note_add_outlined,
-                      actionLabel: '新建备忘',
-                      onAction: () =>
-                          showMemoEditor(context, initialCategory: _category),
-                    ),
-                  )
-                : ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                    children: [
-                      _Section(
-                        title: '逾期未完成',
-                        items: overdue,
-                        emptyText: null,
-                        highlight: true,
-                        onEdit: (memo) => showMemoEditor(context, existing: memo),
-                        onToggle: (memo, value) =>
-                            state.toggleMemoDone(memo.id, value),
-                        onDelete: (memo) => _delete(context, state, memo),
-                      ),
-                      _Section(
-                        title: '今天',
-                        items: todayList,
-                        emptyText: '今天没有安排，要不要加一条？',
-                        onEdit: (memo) => showMemoEditor(context, existing: memo),
-                        onToggle: (memo, value) =>
-                            state.toggleMemoDone(memo.id, value),
-                        onDelete: (memo) => _delete(context, state, memo),
-                      ),
-                      _Section(
-                        title: '待安排',
-                        items: unplanned,
-                        emptyText: null,
-                        onEdit: (memo) => showMemoEditor(context, existing: memo),
-                        onToggle: (memo, value) =>
-                            state.toggleMemoDone(memo.id, value),
-                        onDelete: (memo) => _delete(context, state, memo),
-                      ),
-                      _Section(
-                        title: '已完成',
-                        items: done,
-                        emptyText: null,
-                        onEdit: (memo) => showMemoEditor(context, existing: memo),
-                        onToggle: (memo, value) =>
-                            state.toggleMemoDone(memo.id, value),
-                        onDelete: (memo) => _delete(context, state, memo),
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          '长按或侧滑可以删除备忘',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+            child: _view == _MemoView.list
+                ? (items.isEmpty
+                    ? Center(
+                        child: EmptyHint(
+                          text: '还没有${_category.label}备忘\n点击右下角按钮添加第一条',
+                          icon: Icons.note_add_outlined,
+                          actionLabel: '新建备忘',
+                          onAction: () => showMemoEditor(
+                            context,
+                            initialCategory: _category,
                           ),
                         ),
-                      ),
-                    ],
+                      )
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+                        children: [
+                          _Section(
+                            title: '逾期未完成',
+                            items: overdue,
+                            emptyText: null,
+                            highlight: true,
+                            onEdit: (memo) => showMemoEditor(context, existing: memo),
+                            onToggle: (memo, value) =>
+                                state.toggleMemoDone(memo.id, value),
+                            onDelete: (memo) => _delete(context, state, memo),
+                          ),
+                          _Section(
+                            title: '今天',
+                            items: todayList,
+                            emptyText: '今天没有安排，要不要加一条？',
+                            onEdit: (memo) => showMemoEditor(context, existing: memo),
+                            onToggle: (memo, value) =>
+                                state.toggleMemoDone(memo.id, value),
+                            onDelete: (memo) => _delete(context, state, memo),
+                          ),
+                          _Section(
+                            title: '待安排',
+                            items: unplanned,
+                            emptyText: null,
+                            onEdit: (memo) => showMemoEditor(context, existing: memo),
+                            onToggle: (memo, value) =>
+                                state.toggleMemoDone(memo.id, value),
+                            onDelete: (memo) => _delete(context, state, memo),
+                          ),
+                          _Section(
+                            title: '已完成',
+                            items: done,
+                            emptyText: null,
+                            onEdit: (memo) => showMemoEditor(context, existing: memo),
+                            onToggle: (memo, value) =>
+                                state.toggleMemoDone(memo.id, value),
+                            onDelete: (memo) => _delete(context, state, memo),
+                          ),
+                          const SizedBox(height: 8),
+                          Center(
+                            child: Text(
+                              '长按或侧滑可以删除备忘',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ))
+                : DailyScheduleView(
+                    memos: state.memos,
+                    reminders: state.reminders,
+                    days: 7,
                   ),
           ),
         ],
