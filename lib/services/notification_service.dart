@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -51,10 +53,14 @@ class NotificationService {
   static int weeklyId(int notifyId, int weekday) =>
       weeklyIdBase + notifyId * 8 + weekday;
 
+  /// 只有安卓端才需要真正的闹钟能力。
+  /// Windows / Mac 端直接跳过所有通知调用，否则插件没有对应实现会报错。
+  static bool get supported => Platform.isAndroid;
+
   // ------------------------------------------------------------------ 初始化
 
   Future<void> init() async {
-    if (_initialized) return;
+    if (!supported || _initialized) return;
 
     tz_data.initializeTimeZones();
     _location = await _resolveLocation();
@@ -152,6 +158,7 @@ class NotificationService {
     required List<ReminderItem> reminders,
     required AppSettings settings,
   }) async {
+    if (!supported) return;
     await init();
     await _plugin.cancelAll();
     for (final item in reminders) {
@@ -348,6 +355,7 @@ class NotificationService {
 
   /// 立即发一条测试通知，用于验证权限与响铃是否正常
   Future<void> showTestNotification() async {
+    if (!supported) return;
     await init();
     await _plugin.show(
       id: 999,
@@ -369,11 +377,18 @@ class NotificationService {
     );
   }
 
-  Future<void> cancel(int id) => _plugin.cancel(id: id);
+  Future<void> cancel(int id) async {
+    if (!supported) return;
+    await _plugin.cancel(id: id);
+  }
 
-  Future<void> cancelAll() => _plugin.cancelAll();
+  Future<void> cancelAll() async {
+    if (!supported) return;
+    await _plugin.cancelAll();
+  }
 
   Future<List<int>> pendingIds() async {
+    if (!supported) return <int>[];
     final pending = await _plugin.pendingNotificationRequests();
     return pending.map((e) => e.id).toList();
   }

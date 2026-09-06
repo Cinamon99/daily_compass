@@ -7,6 +7,7 @@ class DailyReview {
     this.score = 7,
     this.mood = 3,
     DateTime? updatedAt,
+    this.deleted = false,
   }) : updatedAt = updatedAt ?? DateTime.now();
 
   /// 日期键，格式 yyyy-MM-dd
@@ -20,6 +21,13 @@ class DailyReview {
   /// 心情 1~5
   int mood;
   DateTime updatedAt;
+  /// 软删除标记，删除后仍需同步给另一端
+  bool deleted;
+
+  /// 标记本条数据刚被修改（刷新 updatedAt）
+  void touch() {
+    updatedAt = DateTime.now();
+  }
 
   bool get isEmpty => summary.trim().isEmpty && reflection.trim().isEmpty;
 
@@ -29,7 +37,8 @@ class DailyReview {
         'reflection': reflection,
         'score': score,
         'mood': mood,
-        'updatedAt': updatedAt.toIso8601String(),
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
+        'deleted': deleted,
       };
 
   factory DailyReview.fromJson(Map<String, dynamic> json) => DailyReview(
@@ -41,6 +50,7 @@ class DailyReview {
         updatedAt: json['updatedAt'] == null
             ? null
             : DateTime.tryParse(json['updatedAt'] as String),
+        deleted: (json['deleted'] as bool?) ?? false,
       );
 }
 

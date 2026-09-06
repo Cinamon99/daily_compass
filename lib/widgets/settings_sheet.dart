@@ -5,6 +5,7 @@ import '../services/storage_service.dart';
 import '../state/app_state_scope.dart';
 import '../utils/date_utils_x.dart';
 import 'common.dart';
+import 'sync_sheet.dart';
 
 /// 内置引导提醒的设置弹层
 Future<void> showSettingsSheet(BuildContext context) {
@@ -169,6 +170,19 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                       ctx,
                     ).showSnackBar(const SnackBar(content: Text('已重新同步')));
                   },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.sync_rounded),
+                  title: const Text('同步到电脑 / 手机'),
+                  subtitle: const Text('同一 WiFi 下手动合并两端数据'),
+                  onTap: () => showSyncSheet(context),
                 ),
               ],
             ),

@@ -4,6 +4,8 @@ import '../models/memo_item.dart';
 import '../state/app_state.dart';
 import '../state/app_state_scope.dart';
 import '../utils/date_utils_x.dart';
+import '../utils/schedule_utils.dart';
+import '../services/export_service.dart';
 import '../widgets/common.dart';
 import '../widgets/daily_schedule_view.dart';
 import '../widgets/memo_editor_sheet.dart';
@@ -45,6 +47,12 @@ class _MemoPageState extends State<MemoPage> {
       appBar: AppBar(
         title: const Text('备忘'),
         actions: [
+          if (_view == _MemoView.schedule)
+            IconButton(
+              onPressed: () => _exportSchedule(context, state),
+              icon: const Icon(Icons.download_outlined),
+              tooltip: '导出日程表',
+            ),
           if (_view == _MemoView.list && done.isNotEmpty)
             IconButton(
               onPressed: () => state.clearCompletedMemos(_category),
@@ -205,6 +213,23 @@ class _MemoPageState extends State<MemoPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _exportSchedule(BuildContext context, AppState state) async {
+    final message = await ExportService.runExport(
+      context,
+      title: '导出每日任务安排表',
+      build: (format) => ExportService.instance.exportSchedule(
+        buildDailySchedule(
+          memos: state.memos,
+          reminders: state.reminders,
+          days: 7,
+        ),
+        format,
+      ),
+    );
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 

@@ -45,6 +45,10 @@ dependencies:
   flutter_timezone: ^5.1.0
   # 日期格式化
   intl: ^0.20.3
+  excel: ^4.0.6
+  pdf: ^3.12.0
+  path_provider: ^2.1.6
+  share_plus: ^13.3.0
 
 dev_dependencies:
   flutter_test:
@@ -67,6 +71,10 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    # PDF 导出用的中文字体子集（覆盖 GB2312 常用汉字）
+    - assets/fonts/ChineseSubset.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

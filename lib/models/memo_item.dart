@@ -46,8 +46,11 @@ class MemoItem {
     this.planDate,
     DateTime? createdAt,
     this.completedAt,
+    DateTime? updatedAt,
+    this.deleted = false,
   })  : id = id ?? newId(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   final String id;
   String title;
@@ -58,6 +61,15 @@ class MemoItem {
   String? planDate;
   final DateTime createdAt;
   DateTime? completedAt;
+  /// 最后修改时间。两端同步时用它判断谁的数据更新，每次改动都会刷新。
+  DateTime updatedAt;
+  /// 软删除标记。删除后不能直接从列表移除，否则同步时会当成"没有这条"而被另一端重新加回来。
+  bool deleted;
+
+  /// 标记本条数据刚被修改（刷新 updatedAt）
+  void touch() {
+    updatedAt = DateTime.now();
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -69,6 +81,8 @@ class MemoItem {
         'planDate': planDate,
         'createdAt': createdAt.toIso8601String(),
         'completedAt': completedAt?.toIso8601String(),
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
+        'deleted': deleted,
       };
 
   factory MemoItem.fromJson(Map<String, dynamic> json) => MemoItem(
@@ -85,6 +99,10 @@ class MemoItem {
         completedAt: json['completedAt'] == null
             ? null
             : DateTime.tryParse(json['completedAt'] as String),
+        updatedAt: json['updatedAt'] == null
+            ? null
+            : DateTime.tryParse(json['updatedAt'] as String),
+        deleted: (json['deleted'] as bool?) ?? false,
       );
 
   MemoItem copyWith({
@@ -107,6 +125,8 @@ class MemoItem {
           : planDate as String?,
       createdAt: createdAt,
       completedAt: completedAt,
+      updatedAt: updatedAt,
+      deleted: deleted,
     );
   }
 }

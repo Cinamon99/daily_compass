@@ -54,11 +54,15 @@ class ReminderItem {
     this.alarmStyle = true,
     DateTime? createdAt,
     this.lastFiredAt,
+    DateTime? updatedAt,
+    this.deleted = false,
   })  : id = id ?? newId(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
 
   final String id;
-  final int notifyId;
+  /// 通知 ID。两端同步合并后如果出现重复会被重新分配，因此不是 final。
+  int notifyId;
   String title;
   String note;
   ReminderRepeat repeat;
@@ -73,6 +77,15 @@ class ReminderItem {
   bool alarmStyle;
   final DateTime createdAt;
   DateTime? lastFiredAt;
+  /// 最后修改时间，两端同步时用它判断谁的数据更新
+  DateTime updatedAt;
+  /// 软删除标记，删除后仍需同步给另一端
+  bool deleted;
+
+  /// 标记本条数据刚被修改（刷新 updatedAt）
+  void touch() {
+    updatedAt = DateTime.now();
+  }
 
   /// 该提醒属于"日常"还是"临时"
   bool get isRoutine => repeat != ReminderRepeat.once;
@@ -92,6 +105,8 @@ class ReminderItem {
         'alarmStyle': alarmStyle,
         'createdAt': createdAt.toIso8601String(),
         'lastFiredAt': lastFiredAt?.toIso8601String(),
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
+        'deleted': deleted,
       };
 
   factory ReminderItem.fromJson(Map<String, dynamic> json) => ReminderItem(
@@ -117,6 +132,10 @@ class ReminderItem {
         lastFiredAt: json['lastFiredAt'] == null
             ? null
             : DateTime.tryParse(json['lastFiredAt'] as String),
+        updatedAt: json['updatedAt'] == null
+            ? null
+            : DateTime.tryParse(json['updatedAt'] as String),
+        deleted: (json['deleted'] as bool?) ?? false,
       );
 
   /// 一次性提醒是否已经错过了（日期已过）

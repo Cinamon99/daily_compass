@@ -15,7 +15,8 @@ class AppSettings {
     this.summaryEnabled = true,
     this.summaryHour = 21,
     this.summaryMinute = 30,
-  });
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now();
 
   /// 晨间提醒：提示今天的任务与日程
   bool morningEnabled;
@@ -27,6 +28,13 @@ class AppSettings {
   int summaryHour;
   int summaryMinute;
 
+  /// 设置的最后修改时间，同步时用它判断哪端的设置更新
+  DateTime updatedAt;
+
+  void touch() {
+    updatedAt = DateTime.now();
+  }
+
   Map<String, dynamic> toJson() => {
         'morningEnabled': morningEnabled,
         'morningHour': morningHour,
@@ -34,6 +42,7 @@ class AppSettings {
         'summaryEnabled': summaryEnabled,
         'summaryHour': summaryHour,
         'summaryMinute': summaryMinute,
+        'updatedAt': updatedAt.toUtc().toIso8601String(),
       };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) => AppSettings(
@@ -43,6 +52,9 @@ class AppSettings {
         summaryEnabled: (json['summaryEnabled'] as bool?) ?? true,
         summaryHour: (json['summaryHour'] as int?) ?? 21,
         summaryMinute: (json['summaryMinute'] as int?) ?? 30,
+        updatedAt: json['updatedAt'] == null
+            ? null
+            : DateTime.tryParse(json['updatedAt'] as String),
       );
 }
 
@@ -93,6 +105,16 @@ class StorageService {
     final current = p.getInt(_kNextNotifyId) ?? 10;
     await p.setInt(_kNextNotifyId, current + 1);
     return current;
+  }
+
+  /// 把 ID 计数器推进到 [value] 之上。
+  /// 两端各自分配过的 ID 在同步后可能撞号，合并时用这个方法把计数器抬到安全值。
+  Future<void> ensureNotifyIdAbove(int value) async {
+    final p = await prefs;
+    final current = p.getInt(_kNextNotifyId) ?? 10;
+    if (value > current) {
+      await p.setInt(_kNextNotifyId, value);
+    }
   }
 
   // ---------------------------------------------------------------- 总结

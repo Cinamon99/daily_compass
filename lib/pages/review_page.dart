@@ -4,6 +4,7 @@ import '../models/daily_review.dart';
 import '../state/app_state.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_theme.dart';
+import '../services/export_service.dart';
 import '../utils/date_utils_x.dart';
 import '../widgets/common.dart';
 
@@ -20,7 +21,28 @@ class ReviewPage extends StatelessWidget {
     final history = state.sortedReviews;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('总结')),
+      appBar: AppBar(
+        title: const Text('总结'),
+        actions: [
+          IconButton(
+            onPressed: () async {
+              final message = await ExportService.runExport(
+                context,
+                title: '导出每日总结',
+                build: (format) => ExportService.instance.exportReviews(
+                  state.sortedReviews,
+                  format,
+                ),
+              );
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(message)));
+            },
+            icon: const Icon(Icons.download_outlined),
+            tooltip: '导出总结',
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
