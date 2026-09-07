@@ -2,11 +2,15 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 
+import 'pages/alarm_ring_page.dart';
 import 'pages/shell_page.dart';
 import 'services/notification_service.dart';
 import 'state/app_state.dart';
 import 'state/app_state_scope.dart';
 import 'theme/app_theme.dart';
+
+/// 全局导航键：通知点击回调（在非 UI 上下文里）需要它来 push 闹钟界面。
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +38,26 @@ class _DailyCompassAppState extends State<DailyCompassApp> {
     super.initState();
     _state = AppState();
     _state.load();
+    // 通知被点击（含全屏闹钟意图）时，跳到全屏闹钟界面。
+    NotificationService.instance.onTap = _routeToAlarm;
+  }
+
+  /// 把通知 payload 路由到全屏闹钟界面；导航器未就绪时稍后重试。
+  void _routeToAlarm(String? payload) {
+    final nav = navigatorKey.currentState;
+    if (nav != null) {
+      nav.push(
+        MaterialPageRoute(
+          builder: (_) => AlarmRingPage(payload: payload),
+          fullscreenDialog: true,
+        ),
+      );
+    } else {
+      Future.delayed(
+        const Duration(milliseconds: 100),
+        () => _routeToAlarm(payload),
+      );
+    }
   }
 
   @override
@@ -52,6 +76,7 @@ class _DailyCompassAppState extends State<DailyCompassApp> {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: ThemeMode.system,
+        navigatorKey: navigatorKey,
         home: const ShellPage(),
       ),
     );

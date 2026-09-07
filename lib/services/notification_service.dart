@@ -224,7 +224,7 @@ class NotificationService {
       await _zonedSchedule(
         id: morningNotifyId,
         scheduled: next,
-        details: _reminderDetails(),
+        details: _alarmDetails(ticker: '早上好'),
         title: '早上好，新的一天开始了',
         body: '看看今天有哪些任务、备忘和提醒',
         payload: 'builtin:morning',
@@ -241,7 +241,7 @@ class NotificationService {
       await _zonedSchedule(
         id: summaryNotifyId,
         scheduled: next,
-        details: _reminderDetails(),
+        details: _alarmDetails(ticker: '该做总结了'),
         title: '该做今天的总结了',
         body: '花三分钟回顾一下，给今天打个分',
         payload: 'builtin:summary',
@@ -300,25 +300,48 @@ class NotificationService {
 
   NotificationDetails _detailsFor(ReminderItem item) {
     if (item.alarmStyle) {
-      return NotificationDetails(
-        android: AndroidNotificationDetails(
-          alarmChannelId,
-          alarmChannelName,
-          channelDescription: alarmChannelDesc,
-          importance: Importance.max,
-          priority: Priority.max,
-          playSound: true,
-          enableVibration: true,
-          enableLights: true,
-          fullScreenIntent: true,
-          category: AndroidNotificationCategory.alarm,
-          visibility: NotificationVisibility.public,
-          audioAttributesUsage: AudioAttributesUsage.alarm,
-          ticker: item.title,
-        ),
-      );
+      return _alarmDetails(ticker: item.title);
     }
     return _reminderDetails(ticker: item.title);
+  }
+
+  /// 闹钟样式：最大重要性 + 闹钟渠道 + 全屏意图 + 点亮屏幕 + 闹钟音。
+  /// 用于用户「闹钟模式」提醒与内置的早/晚引导提醒，确保足够醒目。
+  NotificationDetails _alarmDetails({String? ticker}) {
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        alarmChannelId,
+        alarmChannelName,
+        channelDescription: alarmChannelDesc,
+        importance: Importance.max,
+        priority: Priority.max,
+        playSound: true,
+        enableVibration: true,
+        enableLights: true,
+        fullScreenIntent: true,
+        category: AndroidNotificationCategory.alarm,
+        visibility: NotificationVisibility.public,
+        audioAttributesUsage: AudioAttributesUsage.alarm,
+        ticker: ticker,
+        autoCancel: true,
+      ),
+    );
+  }
+
+  /// 稍后提醒：把当前闹钟延后几分钟再响一次（一次性闹钟样式通知）。
+  Future<void> showSnooze(String title, {int minutes = 5, String? payload}) async {
+    if (!supported) return;
+    await init();
+    final next = DateTime.now().add(Duration(minutes: minutes));
+    final id = 700000 + (DateTime.now().millisecondsSinceEpoch % 100000);
+    await _zonedSchedule(
+      id: id,
+      scheduled: next,
+      details: _alarmDetails(ticker: title),
+      title: title,
+      body: '稍后提醒（$minutes分钟前响过）',
+      payload: payload ?? 'snooze',
+    );
   }
 
   /// 常规提醒渠道的样式：响铃 + 震动，但不抢占全屏

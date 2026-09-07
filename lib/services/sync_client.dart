@@ -70,9 +70,9 @@ class SyncClient {
       }
       throw SyncException('对方不是每日罗盘的同步服务');
     } on SocketException {
-      throw SyncException('连不上电脑。请确认手机和电脑在同一个 WiFi，且电脑端已点开「开启同步」');
+      throw SyncException('连不上电脑。请确认：①手机和电脑在同一 WiFi；②电脑端已点开「开启同步」；③电脑防火墙允许 8777 端口入站（Windows  Defender 可能拦截）');
     } on TimeoutException {
-      throw SyncException('连接超时，请检查 IP 地址和端口是否正确');
+      throw SyncException('连接超时，请检查 IP 地址和端口是否正确，或暂时关闭电脑防火墙再试');
     } on SyncException {
       rethrow;
     } catch (_) {

@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 联网权限：手机端同步必须，否则完全无法发起 HTTP 请求 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <!-- 通知权限（Android 13+ 弹窗申请） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
@@ -17,7 +19,8 @@
     <application
         android:label="每日罗盘"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
