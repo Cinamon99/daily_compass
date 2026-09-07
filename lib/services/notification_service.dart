@@ -8,6 +8,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../models/reminder_item.dart';
 import '../services/storage_service.dart';
 import '../utils/date_utils_x.dart';
+import 'ohos_notifications.dart';
 
 /// 通知点击的回调入口。
 /// 必须是顶层函数或静态方法，并加上 vm:entry-point 注解，
@@ -32,6 +33,10 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
+  /// 鸿蒙（HarmonyOS NEXT）通知桥接。仅在 ohos 平台真正调用，
+  /// 普通 Flutter 构建（Android/iOS/Windows）上被 isOhos 守卫挡住，不触发。
+  final OhosNotifications _ohos = OhosNotifications();
+
   static const String alarmChannelId = 'compass_alarm';
   static const String alarmChannelName = '闹钟';
   static const String alarmChannelDesc = '需要准时响铃的闹钟与强提醒';
@@ -53,14 +58,23 @@ class NotificationService {
   static int weeklyId(int notifyId, int weekday) =>
       weeklyIdBase + notifyId * 8 + weekday;
 
-  /// 只有安卓端才需要真正的闹钟能力。
+  /// 安卓与鸿蒙 NEXT 需要真正的闹钟能力。
   /// Windows / Mac 端直接跳过所有通知调用，否则插件没有对应实现会报错。
-  static bool get supported => Platform.isAndroid;
+  static bool get supported =>
+      Platform.isAndroid || OhosNotifications.isOhos;
 
   // ------------------------------------------------------------------ 初始化
 
   Future<void> init() async {
     if (!supported || _initialized) return;
+
+    // 鸿蒙走原生桥接：只申请权限，不初始化 flutter_local_notifications
+    // （该插件在鸿蒙上既编不过也拿不到通知能力）。
+    if (OhosNotifications.isOhos) {
+      await _ohos.requestPermission();
+      _initialized = true;
+      return;
+    }
 
     tz_data.initializeTimeZones();
     _location = await _resolveLocation();
@@ -135,6 +149,7 @@ class NotificationService {
   /// 申请通知权限（Android 13+）与精确闹钟权限（Android 12+）。
   /// 返回是否具备通知权限。
   Future<bool> ensurePermissions({bool requestExactAlarms = true}) async {
+    if (OhosNotifications.isOhos) return _ohos.requestPermission();
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (android == null) return true;
@@ -182,6 +197,7 @@ class NotificationService {
           title: item.title,
           body: _bodyFor(item),
           payload: item.id,
+          alarm: item.alarmStyle,
         );
       case ReminderRepeat.daily:
         final next = item.nextFireAt(now);
@@ -194,6 +210,7 @@ class NotificationService {
           body: _bodyFor(item),
           payload: item.id,
           match: DateTimeComponents.time,
+          alarm: item.alarmStyle,
         );
       case ReminderRepeat.weekly:
         for (final weekday in item.weekdays) {
@@ -206,6 +223,7 @@ class NotificationService {
             body: _bodyFor(item),
             payload: item.id,
             match: DateTimeComponents.dayOfWeekAndTime,
+            alarm: item.alarmStyle,
           );
         }
     }
@@ -229,6 +247,7 @@ class NotificationService {
         body: '看看今天有哪些任务、备忘和提醒',
         payload: 'builtin:morning',
         match: DateTimeComponents.time,
+        alarm: true,
       );
     }
 
@@ -246,6 +265,7 @@ class NotificationService {
         body: '花三分钟回顾一下，给今天打个分',
         payload: 'builtin:summary',
         match: DateTimeComponents.time,
+        alarm: true,
       );
     }
   }
@@ -258,7 +278,22 @@ class NotificationService {
     required String body,
     String? payload,
     DateTimeComponents? match,
+    bool alarm = false,
   }) async {
+    // 鸿蒙走原生桥接：把下一触发点（UTC 毫秒）交给 reminderAgent，
+    // 系统级提醒，关 App 也能准时响。
+    if (OhosNotifications.isOhos) {
+      await _ohos.schedule(
+        id: id,
+        scheduled: scheduled,
+        title: title,
+        body: body,
+        payload: payload,
+        fullScreen: alarm,
+      );
+      return;
+    }
+
     final tzTime = tz.TZDateTime(
       _location,
       scheduled.year,
@@ -331,6 +366,17 @@ class NotificationService {
   /// 稍后提醒：把当前闹钟延后几分钟再响一次（一次性闹钟样式通知）。
   Future<void> showSnooze(String title, {int minutes = 5, String? payload}) async {
     if (!supported) return;
+    if (OhosNotifications.isOhos) {
+      await _ohos.schedule(
+        id: 700000 + (DateTime.now().millisecondsSinceEpoch % 100000),
+        scheduled: DateTime.now().add(Duration(minutes: minutes)),
+        title: title,
+        body: '稍后提醒（$minutes分钟前响过）',
+        payload: payload ?? 'snooze',
+        fullScreen: true,
+      );
+      return;
+    }
     await init();
     final next = DateTime.now().add(Duration(minutes: minutes));
     final id = 700000 + (DateTime.now().millisecondsSinceEpoch % 100000);
@@ -379,6 +425,10 @@ class NotificationService {
   /// 立即发一条测试通知，用于验证权限与响铃是否正常
   Future<void> showTestNotification() async {
     if (!supported) return;
+    if (OhosNotifications.isOhos) {
+      await _ohos.showTest();
+      return;
+    }
     await init();
     await _plugin.show(
       id: 999,
@@ -402,16 +452,25 @@ class NotificationService {
 
   Future<void> cancel(int id) async {
     if (!supported) return;
+    if (OhosNotifications.isOhos) {
+      await _ohos.cancel(id);
+      return;
+    }
     await _plugin.cancel(id: id);
   }
 
   Future<void> cancelAll() async {
     if (!supported) return;
+    if (OhosNotifications.isOhos) {
+      await _ohos.cancelAll();
+      return;
+    }
     await _plugin.cancelAll();
   }
 
   Future<List<int>> pendingIds() async {
     if (!supported) return <int>[];
+    if (OhosNotifications.isOhos) return <int>[];
     final pending = await _plugin.pendingNotificationRequests();
     return pending.map((e) => e.id).toList();
   }
